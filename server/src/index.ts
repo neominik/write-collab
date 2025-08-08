@@ -36,7 +36,9 @@ const hocuspocus = new HocuspocusServer({
     )
     const row = rows[0]
     if (!row) {
-      await query('INSERT INTO documents(id, current_text, ystate) VALUES($1, $2, $3) ON CONFLICT (id) DO NOTHING', [documentName, '', null])
+      // If a document doesn't exist, do not implicitly create it.
+      // Deny loading so that only admin-created documents are editable.
+      throw new Error('document-not-found')
     } else if (row.ystate && row.ystate.length > 0) {
       Y.applyUpdate(ydoc, new Uint8Array(row.ystate))
     } else if (row.current_text) {
@@ -51,6 +53,9 @@ const hocuspocus = new HocuspocusServer({
     const ytext = doc.getText('content')
     const text = ytext.toString()
     const update = Y.encodeStateAsUpdate(doc)
+    // Only persist changes if the document exists (admins create docs)
+    const exists = await query<{ id: string }>('SELECT id FROM documents WHERE id = $1', [documentName])
+    if (!exists.rows[0]) return
     await query('UPDATE documents SET current_text = $2, ystate = $3, updated_at = NOW() WHERE id = $1', [documentName, text, Buffer.from(update)])
     // Snapshot at most once every 30s
     await query(`
@@ -171,7 +176,9 @@ app.patch('/api/documents/:id/title', async (req, res) => {
   res.json({ ok: true })
 })
 
-app.get('/api/documents/:id/events', (req, res) => {
+app.get('/api/documents/:id/events', async (req, res) => {
+  const { rows } = await query<{ id: string }>('SELECT id FROM documents WHERE id = $1', [req.params.id])
+  if (!rows[0]) return res.status(404).end()
   subscribe(req.params.id, res)
 })
 
@@ -188,7 +195,10 @@ app.get('/api/config', (req, res) => {
 const clientDist = path.resolve(process.cwd(), 'client', 'dist')
 app.use(express.static(clientDist, { index: false }))
 
-app.get('/d/:id', (req, res) => {
+app.get('/d/:id', async (req, res) => {
+  const id = req.params.id
+  const { rows } = await query<{ id: string }>('SELECT id FROM documents WHERE id = $1', [id])
+  if (!rows[0]) return res.status(404).send('Not found')
   res.sendFile(path.join(clientDist, 'index.html'))
 })
 
