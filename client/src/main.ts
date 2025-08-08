@@ -19,7 +19,6 @@ const ytext = ydoc.getText('content')
 const editorElement = document.getElementById('editor') as HTMLDivElement
 const titleInput = document.getElementById('title') as HTMLInputElement | null
 
-// Monaco Editor setup - minimal markdown highlighting with system theme
 const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
 const initialMonacoTheme = prefersDark ? 'vs-dark' : 'vs'
 
@@ -51,7 +50,6 @@ try {
 
 function setBrowserTitle(title: string) { document.title = (title || 'Untitled') + ' – Write Collab' }
 
-// Hocuspocus Provider for Yjs
 const metaWs = (document.querySelector('meta[name="ws-url"]') as HTMLMetaElement | null)?.content || ''
 const wsUrl = metaWs || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}${location.port ? ':' + (Number(import.meta.env.VITE_WS_PORT) || Number(location.port) + 1) : ''}`
 const provider = new HocuspocusProvider({
@@ -62,10 +60,8 @@ const provider = new HocuspocusProvider({
 
 new MonacoBinding(ytext, editor.getModel()!, new Set([editor]), provider.awareness)
 
-// Keep browser tab title in sync with the dedicated title field
 setBrowserTitle('')
 
-// Listen to restore events via SSE to hard-reset editor content
 const eventsUrl = `/api/documents/${encodeURIComponent(docId)}/events`
 try {
   const es = new EventSource(eventsUrl)
@@ -89,7 +85,6 @@ try {
   })
 } catch {}
 
-// Fetch and set initial title only (content comes exclusively from Yjs provider to avoid duplication)
 fetch(`/api/documents/${encodeURIComponent(docId)}`).then(async r => {
   if (!r.ok) return
   const data = await r.json()
@@ -99,7 +94,6 @@ fetch(`/api/documents/${encodeURIComponent(docId)}`).then(async r => {
   }
 }).catch(() => {})
 
-// Debounced PATCH to update title on server
 let titleDebounce: number | undefined
 titleInput?.addEventListener('input', () => {
   const value = titleInput.value
@@ -114,7 +108,6 @@ titleInput?.addEventListener('input', () => {
   }, 300)
 })
 
-// Mobile-friendly: ensure viewport fits
 window.addEventListener('resize', () => editor.layout())
 
 
