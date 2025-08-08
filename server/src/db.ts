@@ -26,7 +26,8 @@ export async function migrate() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     current_text TEXT NOT NULL DEFAULT '',
-    title TEXT NOT NULL DEFAULT ''
+    title TEXT NOT NULL DEFAULT '',
+    ystate BYTEA
   );
 
   CREATE TABLE IF NOT EXISTS versions (
@@ -39,5 +40,6 @@ export async function migrate() {
 
   // Ensure columns exist on already-created tables
   await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT ''`)
+  await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS ystate BYTEA`)
 }
 

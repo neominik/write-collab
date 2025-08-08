@@ -30,23 +30,28 @@ const hocuspocus = new HocuspocusServer({
   async onLoadDocument(data) {
     const { documentName } = data
     const ydoc = new Y.Doc()
-    const ytext = ydoc.getText('content')
-    const { rows } = await query<{ current_text: string }>(
-      'SELECT current_text FROM documents WHERE id = $1',
+    const { rows } = await query<{ current_text: string; ystate: Buffer | null }>(
+      'SELECT current_text, ystate FROM documents WHERE id = $1',
       [documentName],
     )
-    const initial = rows[0]?.current_text || ''
-    if (!rows[0]) {
-      await query('INSERT INTO documents(id, current_text) VALUES($1, $2) ON CONFLICT (id) DO NOTHING', [documentName, ''])
+    const row = rows[0]
+    if (!row) {
+      await query('INSERT INTO documents(id, current_text, ystate) VALUES($1, $2, $3) ON CONFLICT (id) DO NOTHING', [documentName, '', null])
+    } else if (row.ystate && row.ystate.length > 0) {
+      Y.applyUpdate(ydoc, new Uint8Array(row.ystate))
+    } else if (row.current_text) {
+      // Backfill from current_text if no ystate yet
+      ydoc.getText('content').insert(0, row.current_text)
     }
-    if (initial) ytext.insert(0, initial)
     return ydoc
   },
   async onChange(data) {
     const { document, documentName } = data
-    const ytext = (document as Y.Doc).getText('content')
+    const doc = document as Y.Doc
+    const ytext = doc.getText('content')
     const text = ytext.toString()
-    await query('UPDATE documents SET current_text = $2, updated_at = NOW() WHERE id = $1', [documentName, text])
+    const update = Y.encodeStateAsUpdate(doc)
+    await query('UPDATE documents SET current_text = $2, ystate = $3, updated_at = NOW() WHERE id = $1', [documentName, text, Buffer.from(update)])
     // Snapshot at most once every 30s
     await query(`
       INSERT INTO versions(document_id, text)
@@ -122,7 +127,7 @@ app.post('/admin/docs/:id/restore/:versionId', adminGuard, async (req, res) => {
   const { rows } = await query<{ text: string }>('SELECT text FROM versions WHERE id = $1 AND document_id = $2', [versionId, id])
   if (!rows[0]) return res.status(404).send('Not found')
   const text = rows[0].text
-  await query('UPDATE documents SET current_text = $2, updated_at = NOW() WHERE id = $1', [id, text])
+  await query('UPDATE documents SET current_text = $2, ystate = NULL, updated_at = NOW() WHERE id = $1', [id, text])
   await query('INSERT INTO versions(document_id, text) VALUES ($1, $2)', [id, text])
   publish(id, 'restore', { text })
   res.redirect(`/d/${id}`)
