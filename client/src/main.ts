@@ -17,6 +17,7 @@ const ydoc = new Y.Doc()
 const ytext = ydoc.getText('content')
 
 const editorElement = document.getElementById('editor') as HTMLDivElement
+const titleInput = document.getElementById('title') as HTMLInputElement | null
 
 // Monaco Editor setup - minimal markdown highlighting
 const editor = monaco.editor.create(editorElement, {
@@ -33,6 +34,8 @@ const editor = monaco.editor.create(editorElement, {
   scrollbar: { vertical: 'hidden', verticalScrollbarSize: 0 },
 })
 
+function setBrowserTitle(title: string) { document.title = (title || 'Untitled') + ' – Write Collab' }
+
 // Hocuspocus Provider for Yjs
 const metaWs = (document.querySelector('meta[name="ws-url"]') as HTMLMetaElement | null)?.content || ''
 const wsUrl = metaWs || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}${location.port ? ':' + (Number(import.meta.env.VITE_WS_PORT) || Number(location.port) + 1) : ''}`
@@ -43,6 +46,9 @@ const provider = new HocuspocusProvider({
 })
 
 new MonacoBinding(ytext, editor.getModel()!, new Set([editor]), provider.awareness)
+
+// Keep browser tab title in sync with the dedicated title field
+setBrowserTitle('')
 
 // Connection status dot
 const status = document.getElementById('status')!
@@ -72,6 +78,15 @@ try {
       }
     } catch {}
   })
+  es.addEventListener('title', (ev) => {
+    try {
+      const payload = JSON.parse((ev as MessageEvent).data)
+      if (typeof payload.title === 'string') {
+        if (titleInput) titleInput.value = payload.title
+        setBrowserTitle(payload.title)
+      }
+    } catch {}
+  })
 } catch {}
 
 // Ensure initial content loads (in case of empty provider initial)
@@ -81,7 +96,26 @@ fetch(`/api/documents/${encodeURIComponent(docId)}`).then(async r => {
   if (typeof data.text === 'string' && editor.getValue() === '') {
     editor.setValue(data.text)
   }
+  if (typeof data.title === 'string') {
+    if (titleInput) titleInput.value = data.title
+    setBrowserTitle(data.title)
+  }
 }).catch(() => {})
+
+// Debounced PATCH to update title on server
+let titleDebounce: number | undefined
+titleInput?.addEventListener('input', () => {
+  const value = titleInput.value
+  setBrowserTitle(value)
+  if (titleDebounce) window.clearTimeout(titleDebounce)
+  titleDebounce = window.setTimeout(() => {
+    fetch(`/api/documents/${encodeURIComponent(docId)}/title`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: value }),
+    }).catch(() => {})
+  }, 300)
+})
 
 // Mobile-friendly: ensure viewport fits
 window.addEventListener('resize', () => editor.layout())

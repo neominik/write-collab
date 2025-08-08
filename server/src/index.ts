@@ -76,7 +76,7 @@ function adminGuard(req: express.Request, res: express.Response, next: express.N
 
 // Admin pages
 app.get('/admin', adminGuard, async (req, res) => {
-  const { rows } = await query<{ id: string; updated_at: string }>('SELECT id, updated_at FROM documents ORDER BY updated_at DESC LIMIT 200')
+  const { rows } = await query<{ id: string; updated_at: string; title: string }>('SELECT id, updated_at, title FROM documents ORDER BY updated_at DESC LIMIT 200')
   res.type('html').send(renderAdmin(rows))
 })
 
@@ -99,14 +99,22 @@ app.post('/admin/docs', adminGuard, async (req, res) => {
   const { customAlphabet } = await import('nanoid')
   const nanoid = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', 20)
   const id = nanoid()
-  await query('INSERT INTO documents(id, current_text) VALUES($1, $2)', [id, ''])
+  await query('INSERT INTO documents(id, current_text, title) VALUES($1, $2, $3)', [id, '', 'Untitled'])
   res.redirect(`/d/${id}`)
 })
 
 app.get('/admin/docs/:id/versions', adminGuard, async (req, res) => {
   const docId = req.params.id
   const { rows } = await query<{ id: string; created_at: string }>('SELECT id, created_at FROM versions WHERE document_id = $1 ORDER BY created_at DESC', [docId])
-  res.type('html').send(renderVersions(docId, rows))
+  const titleRow = await query<{ title: string }>('SELECT title FROM documents WHERE id = $1', [docId])
+  res.type('html').send(renderVersions(docId, titleRow.rows[0]?.title || '', rows))
+})
+app.post('/admin/docs/:id/title', adminGuard, express.urlencoded({ extended: false }), async (req, res) => {
+  const id = req.params.id
+  const title = (req.body.title ?? '').toString().trim()
+  await query('UPDATE documents SET title = $2, updated_at = NOW() WHERE id = $1', [id, title])
+  publish(id, 'title', { title })
+  res.redirect('/admin')
 })
 
 app.post('/admin/docs/:id/restore/:versionId', adminGuard, async (req, res) => {
@@ -122,9 +130,21 @@ app.post('/admin/docs/:id/restore/:versionId', adminGuard, async (req, res) => {
 
 // API
 app.get('/api/documents/:id', async (req, res) => {
-  const { rows } = await query<{ id: string; current_text: string; updated_at: string }>('SELECT id, current_text, updated_at FROM documents WHERE id = $1', [req.params.id])
+  const { rows } = await query<{ id: string; current_text: string; updated_at: string; title: string }>('SELECT id, current_text, updated_at, title FROM documents WHERE id = $1', [req.params.id])
   if (!rows[0]) return res.status(404).json({ error: 'Not found' })
-  res.json({ id: rows[0].id, text: rows[0].current_text, updatedAt: rows[0].updated_at })
+  const text = rows[0].current_text || ''
+  const title = rows[0].title || ''
+  res.json({ id: rows[0].id, text, updatedAt: rows[0].updated_at, title })
+})
+
+app.patch('/api/documents/:id/title', async (req, res) => {
+  const title = (req.body?.title ?? '').toString().trim()
+  if (title.length > 512) return res.status(400).json({ error: 'Title too long' })
+  const { rows } = await query<{ id: string }>('SELECT id FROM documents WHERE id = $1', [req.params.id])
+  if (!rows[0]) return res.status(404).json({ error: 'Not found' })
+  await query('UPDATE documents SET title = $2, updated_at = NOW() WHERE id = $1', [req.params.id, title])
+  publish(req.params.id, 'title', { title })
+  res.json({ ok: true })
 })
 
 app.get('/api/documents/:id/events', (req, res) => {
@@ -173,8 +193,30 @@ function renderLogin(error?: string) {
   </div></body></html>`
 }
 
-function renderAdmin(docs: { id: string; updated_at: string }[]) {
-  const rows = docs.map(d => `<tr><td><a href="/d/${d.id}">${d.id}</a></td><td>${new Date(d.updated_at).toLocaleString()}</td><td><a href="/admin/docs/${d.id}/versions">versions</a></td></tr>`).join('')
+function renderAdmin(docs: { id: string; updated_at: string; title: string }[]) {
+  const rows = docs.map(d => {
+    const safeTitle = (d.title || 'Untitled')
+    const rowId = `t_${d.id}`
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <span id="disp_${rowId}" style="font-weight:600">${escapeHtmlAttr(safeTitle)}</span>
+          <button class="btn" type="button" onclick="toggleTitleEdit('${rowId}', true)">Edit</button>
+          <form id="form_${rowId}" method="post" action="/admin/docs/${d.id}/title" style="display:none;gap:.25rem;align-items:center">
+            <input id="input_${rowId}" type="text" name="title" value="${escapeHtmlAttr(d.title)}" placeholder="Untitled" style="padding:.25rem .5rem;border-radius:.375rem;border:1px solid #334155;background:#0b1222;color:#e2e8f0" />
+            <button class="btn" type="submit">Save</button>
+            <button class="btn" type="button" onclick="toggleTitleEdit('${rowId}', false)">Cancel</button>
+          </form>
+        </div>
+        <div style="opacity:.7;font-size:.8rem">${d.id}</div>
+      </td>
+      <td>${new Date(d.updated_at).toLocaleString()}</td>
+      <td>
+        <a href="/d/${d.id}" class="btn" style="text-decoration:none">Open</a>
+        <a href="/admin/docs/${d.id}/versions" class="btn" style="margin-left:.5rem;text-decoration:none">Versions</a>
+      </td>
+    </tr>`
+  }).join('')
   return `<!DOCTYPE html>
   <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Documents</title>
@@ -193,12 +235,24 @@ function renderAdmin(docs: { id: string; updated_at: string }[]) {
       <form method="post" action="/admin/logout" style="display:inline;margin-left:.5rem"><button class="btn" type="submit">Logout</button></form>
     </div></div>
     <div class="wrap">
-      <table><thead><tr><th>ID</th><th>Updated</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>
+      <table><thead><tr><th>Title</th><th>Updated</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>
     </div>
+    <script>
+      function toggleTitleEdit(id, show){
+        var disp = document.getElementById('disp_'+id);
+        var form = document.getElementById('form_'+id);
+        var input = document.getElementById('input_'+id);
+        if(!disp || !form) return;
+        var shouldShow = !!show;
+        form.style.display = shouldShow ? 'inline-flex' : 'none';
+        disp.style.display = shouldShow ? 'none' : 'inline';
+        if(shouldShow && input) setTimeout(function(){ input.focus(); input.select && input.select(); }, 0);
+      }
+    </script>
   </body></html>`
 }
 
-function renderVersions(docId: string, versions: { id: string; created_at: string }[]) {
+function renderVersions(docId: string, docTitle: string, versions: { id: string; created_at: string }[]) {
   const rows = versions.map(v => `<tr><td>${new Date(v.created_at).toLocaleString()}</td><td><form method="post" action="/admin/docs/${docId}/restore/${v.id}"><button type="submit">Restore</button></form></td></tr>`).join('')
   return `<!DOCTYPE html>
   <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -212,9 +266,19 @@ function renderVersions(docId: string, versions: { id: string; created_at: strin
     button{padding:.4rem .7rem;border:1px solid #334155;border-radius:.5rem;background:#1e293b;color:#e2e8f0;cursor:pointer}
   </style></head>
   <body>
-    <div class="wrap"><p><a href="/admin">← Back</a> · Document <a href="/d/${docId}">${docId}</a></p>
+    <div class="wrap"><p><a href="/admin">← Back</a> · Document <a href="/d/${docId}">${docTitle || 'Untitled'}</a> <span style="opacity:.7">(${docId})</span></p>
     <table><thead><tr><th>Created</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div>
   </body></html>`
+}
+
+// Title is now stored in DB; no derivation required
+
+function escapeHtmlAttr(value: string): string {
+  return (value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 
