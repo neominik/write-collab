@@ -1,0 +1,62 @@
+---
+alwaysApply: true
+---
+# Write Collab – Project Structure
+
+This app is a minimal collaborative Markdown editor powered by Yjs/Hocuspocus, Monaco, Express, and Postgres. The HTTP server also serves an admin UI.
+
+## Top-level
+- Server entry: [server/src/index.ts](mdc:server/src/index.ts)
+- Database helper & migrations: [server/src/db.ts](mdc:server/src/db.ts)
+- Server-Sent Events (SSE): [server/src/sse.ts](mdc:server/src/sse.ts)
+- Client entry: [client/src/main.ts](mdc:client/src/main.ts)
+- Client HTML shell: [client/index.html](mdc:client/index.html)
+- Vite config: [client/vite.config.ts](mdc:client/vite.config.ts)
+- Dockerfile: [Dockerfile](mdc:Dockerfile)
+- Docker Compose example: [docker-compose.example.yml](mdc:docker-compose.example.yml)
+
+## Runtime
+- Default HTTP: http://0.0.0.0:3000
+- Default WS: ws://0.0.0.0:3001
+- Admin secret is required via `ADMIN_SECRET`.
+
+## Realtime (Hocuspocus)
+Implemented inside [server/src/index.ts](mdc:server/src/index.ts):
+- `onLoadDocument`: loads initial text for a document ID and creates a row if missing.
+- `onChange`: updates `documents.current_text`, bumps `updated_at`, and snapshots into `versions` at most once every 30s.
+
+## HTTP API & Admin
+All routes are defined in [server/src/index.ts](mdc:server/src/index.ts):
+- Admin guard via cookie `admin`, header `x-admin-secret`, or query `?secret=`.
+- Admin pages:
+  - `GET /admin` – list documents
+  - `POST /admin/login`, `POST /admin/logout`
+  - `POST /admin/docs` – create document
+  - `GET /admin/docs/:id/versions` – list versions
+  - `POST /admin/docs/:id/title` – update title (server-rendered flow)
+  - `POST /admin/docs/:id/restore/:versionId` – restore version
+- JSON API:
+  - `GET /api/documents/:id` – fetch text and title
+  - `PATCH /api/documents/:id/title` – update title; also emits SSE `title`
+  - `GET /api/documents/:id/events` – SSE channel; emits `restore`, `title`
+  - `GET /api/config` – returns `{ wsUrl }`
+- Static app:
+  - Serves `client/dist` as static assets
+  - `GET /d/:id` serves SPA HTML
+  - `GET /` redirects to `/admin`
+
+## Database
+Schema is created by `migrate()` in [server/src/db.ts](mdc:server/src/db.ts):
+- `documents(id TEXT PRIMARY KEY, current_text TEXT, title TEXT, created_at, updated_at)`
+- `versions(id UUID, document_id TEXT → documents.id, text TEXT, created_at)`
+
+## Client
+- Monaco editor + Yjs binding in [client/src/main.ts](mdc:client/src/main.ts)
+- WS URL: uses `<meta name="ws-url">` if present in [client/index.html](mdc:client/index.html), else computes from location and `VITE_WS_PORT`
+- Subscribes to SSE `restore` and `title`; initial content fetched from `GET /api/documents/:id`
+
+## Useful scripts (root)
+- `pnpm dev` – run server in dev (serves built client if present)
+- `pnpm build` – builds client and server
+- `pnpm start` – runs built server from `dist/`
+

@@ -1,0 +1,41 @@
+---
+globs: server/**/*.ts
+description: Server layout, routes, realtime, and DB access
+---
+# Server architecture
+
+## Entry
+- Main server: [server/src/index.ts](mdc:server/src/index.ts)
+  - Starts Hocuspocus WS server (`WS_PORT`) and Express HTTP server (`HTTP_PORT`)
+  - Calls `migrate()` before serving
+
+## Realtime (Hocuspocus)
+- `onLoadDocument(data)`: creates a `Y.Doc`, loads `documents.current_text`, lazy-inserts missing `documents` row
+- `onChange(data)`: updates `documents.current_text` and throttled snapshot to `versions` (no more than once per 30s)
+
+## HTTP
+- Admin guard `adminGuard(req,res,next)` via cookie `admin`, header `x-admin-secret`, or query `secret`
+- Admin endpoints: list/create docs, edit title, versions, restore
+- JSON API:
+  - `GET /api/documents/:id` returns `{ id, text, updatedAt, title }`
+  - `PATCH /api/documents/:id/title` validates length ≤ 512, updates, and `publish(..., 'title', { title })`
+  - `GET /api/documents/:id/events` uses SSE `subscribe`
+  - `GET /api/config` returns `{ wsUrl }` computed from request/env
+
+## SSE
+- In [server/src/sse.ts](mdc:server/src/sse.ts)
+  - `subscribe(docId, res)` registers, sets headers, and heartbeats every 15s
+  - `publish(docId, event, data)` broadcasts to connected clients
+  - Events used: `restore`, `title`, plus `ping`
+
+## Database
+- In [server/src/db.ts](mdc:server/src/db.ts)
+  - `pool` reads `DATABASE_URL` and optional `DATABASE_SSL`
+  - `query<T>(text, params)` returns `{ rows: T[] }`
+  - `migrate()` creates `documents` and `versions`, ensures `documents.title`
+
+## Conventions
+- Prefer typed `query<T>()` for DB results
+- When mutating a document server-side (e.g., restore, title), also emit SSE via `publish`
+- Keep responses small and JSON-serializable; HTML only for admin UI
+

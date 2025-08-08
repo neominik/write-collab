@@ -1,0 +1,35 @@
+---
+alwaysApply: true
+---
+# Dev, Build, and Run
+
+## Node & Package Manager
+- Node: `>=18.17.0`
+- Package manager: `pnpm@9.7.1`
+
+## Install
+- Root installs workspace and delegates to client/server:
+  - `pnpm i`
+  - Or see root `postinstall` in [package.json](mdc:package.json)
+
+## Commands
+- Root scripts (see [package.json](mdc:package.json)):
+  - `pnpm dev` → `tsx server/src/index.ts`
+  - `pnpm build` → build client and server
+  - `pnpm start` → `node dist/server/index.js`
+- Client (see [client/package.json](mdc:client/package.json)):
+  - `pnpm -C client dev|build|preview`
+- Server (see [server/package.json](mdc:server/package.json)):
+  - `pnpm -C server dev|build|start`
+
+## Environment
+Set at least `ADMIN_SECRET`. Common vars:
+- `ADMIN_SECRET` (required)
+- `HTTP_PORT` default `3000`, `WS_PORT` default `3001`, `HOST` default `0.0.0.0`
+- `DATABASE_URL`, `DATABASE_SSL` (or `PG*` vars) for Postgres; defaults provided in Compose
+- `WS_DOMAIN`, `DOMAIN` when behind Traefik (Compose)
+
+## Compose / Docker
+- Build and run with [docker-compose.example.yml](mdc:docker-compose.example.yml) and [Dockerfile](mdc:Dockerfile)
+- Exposes 3000 (HTTP) and 3001 (WS)
+

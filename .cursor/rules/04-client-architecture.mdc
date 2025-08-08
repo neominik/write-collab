@@ -1,0 +1,33 @@
+---
+globs: client/**/*
+description: Client entry, editor setup, provider, and server interaction
+---
+# Client architecture
+
+## Entry & Shell
+- HTML shell at [client/index.html](mdc:client/index.html) contains `#editor` and connection status dot
+- Script entry: [client/src/main.ts](mdc:client/src/main.ts)
+
+## Document identity
+- Extracts `docId` from pathname `/d/:id`; on mismatch, shows an inline error and aborts
+
+## Editor
+- Monaco editor with minimal Markdown highlighting, responsive layout, and system dark/light theme sync
+- Yjs `Y.Doc` + `ytext = 'content'` bound via `MonacoBinding`
+
+## Connectivity
+- Hocuspocus provider URL resolution:
+  - If `<meta name="ws-url" content="...">` present in HTML, use it
+  - Else: derive from `location` using `wss/ws`, hostname, and either `VITE_WS_PORT` or `location.port + 1`
+- Status dot reflects provider `status` events
+
+## Server interactions
+- SSE to `/api/documents/:id/events`
+  - `restore`: hard-resets editor value if diverged
+  - `title`: updates title input and document.title
+- Initial fetch to `/api/documents/:id` to hydrate content/title on first load
+- Debounced `PATCH /api/documents/:id/title` on input changes (300ms)
+
+## Build
+- Vite config at [client/vite.config.ts](mdc:client/vite.config.ts); output to `client/dist`
+

@@ -1,0 +1,27 @@
+---
+globs: Dockerfile,docker-compose*.yml
+description: Docker build and Docker Compose with Postgres and Traefik
+---
+# Deploy (Docker / Compose)
+
+## Images
+- Multi-stage build in [Dockerfile](mdc:Dockerfile)
+  - `deps` installs workspace deps (root, client, server) with pnpm
+  - `build` runs `pnpm ... build` to produce `client/dist` and `dist/server`
+  - `runner` copies built artifacts and runs `node dist/server/index.js`
+
+## Compose
+- Example stack in [docker-compose.example.yml](mdc:docker-compose.example.yml)
+  - Services: `db` (Postgres 16), `write-collab`
+  - Ports: `3000:3000` (HTTP), `3001:3001` (WS), `5432:5432` (DB)
+  - Env you likely need:
+    - `ADMIN_SECRET` (required)
+    - `DOMAIN`, `WS_DOMAIN` (for Traefik routing)
+    - `DATABASE_URL` or `PG*` vars; defaults point to bundled Postgres
+    - `HTTP_PORT`, `WS_PORT`, `HOST`
+  - Traefik labels set routers/services for app and WS
+
+## Notes
+- Data persisted via `db_data` volume
+- If terminating TLS, ensure WS URL is `wss://` and reachable by the client (set `<meta name="ws-url">` or env-based routing)
+
