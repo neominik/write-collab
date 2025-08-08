@@ -59,7 +59,7 @@ function setStatus(cls: string, title: string) {
 
 setStatus('status-connecting', 'connecting')
 
-provider.on('status', ({ status: s }) => {
+provider.on('status', ({ status: s }: { status: string }) => {
   if (s === 'connected') setStatus('status-connected', 'connected')
   else if (s === 'connecting') setStatus('status-connecting', 'connecting')
   else setStatus('status-disconnected', 'disconnected')
