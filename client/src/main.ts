@@ -6,7 +6,7 @@ import * as monaco from 'monaco-editor'
 function getDocumentId(): string {
   const m = location.pathname.match(/\/d\/([A-Za-z0-9_-]+)/)
   if (!m) {
-    document.body.innerHTML = '<p style="color:#e2e8f0;padding:2rem">Invalid document URL</p>'
+    document.body.innerHTML = '<p style="padding:2rem">Invalid document URL</p>'
     throw new Error('Invalid URL')
   }
   return m[1]
@@ -19,11 +19,14 @@ const ytext = ydoc.getText('content')
 const editorElement = document.getElementById('editor') as HTMLDivElement
 const titleInput = document.getElementById('title') as HTMLInputElement | null
 
-// Monaco Editor setup - minimal markdown highlighting
+// Monaco Editor setup - minimal markdown highlighting with system theme
+const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+const initialMonacoTheme = prefersDark ? 'vs-dark' : 'vs'
+
 const editor = monaco.editor.create(editorElement, {
   value: '',
   language: 'markdown',
-  theme: 'vs-dark',
+  theme: initialMonacoTheme,
   wordWrap: 'on',
   automaticLayout: true,
   minimap: { enabled: false },
@@ -33,6 +36,18 @@ const editor = monaco.editor.create(editorElement, {
   fontSize: 16,
   scrollbar: { vertical: 'hidden', verticalScrollbarSize: 0 },
 })
+
+// React to system theme changes
+try {
+  const media = window.matchMedia('(prefers-color-scheme: dark)')
+  const applyTheme = (isDark: boolean) => monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs')
+  if (typeof media.addEventListener === 'function') {
+    media.addEventListener('change', (ev) => applyTheme(ev.matches))
+  } else if (typeof media.addListener === 'function') {
+    // Safari < 14
+    media.addListener((ev) => applyTheme(ev.matches))
+  }
+} catch {}
 
 function setBrowserTitle(title: string) { document.title = (title || 'Untitled') + ' – Write Collab' }
 

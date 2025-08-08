@@ -179,13 +179,23 @@ function renderLogin(error?: string) {
   return `<!DOCTYPE html>
   <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin Login</title>
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;display:grid;place-items:center;height:100dvh;background:#0f172a;color:#e2e8f0}
+    :root{color-scheme: light dark}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;display:grid;place-items:center;height:100dvh;background:#ffffff;color:#0f172a}
     form{display:flex;gap:.5rem}
-    input{padding:.6rem .8rem;border-radius:.5rem;border:1px solid #334155;background:#0b1222;color:#e2e8f0}
-    button{padding:.6rem .9rem;border-radius:.5rem;border:1px solid #334155;background:#1e293b;color:#e2e8f0;cursor:pointer}
-    .card{background:#0b1222;border:1px solid #1f2a44;padding:2rem;border-radius:1rem;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-    .err{color:#fca5a5;margin-bottom:.5rem}
+    input{padding:.6rem .8rem;border-radius:.5rem;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a}
+    button{padding:.6rem .9rem;border-radius:.5rem;border:1px solid #0f172a;background:#0f172a;color:#ffffff;cursor:pointer}
+    .card{background:#ffffff;border:1px solid #e5e7eb;padding:2rem;border-radius:1rem;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+    .err{color:#dc2626;margin-bottom:.5rem}
+    @media (prefers-color-scheme: dark){
+      body{background:#0f172a;color:#e2e8f0}
+      input{border-color:#334155;background:#0b1222;color:#e2e8f0}
+      button{border-color:#334155;background:#1e293b;color:#e2e8f0}
+      .card{background:#0b1222;border-color:#1f2a44;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+      .err{color:#fca5a5}
+    }
   </style></head>
   <body><div class="card">
   ${error ? `<div class="err">${error}</div>` : ''}
@@ -203,7 +213,7 @@ function renderAdmin(docs: { id: string; updated_at: string; title: string }[]) 
           <span id="disp_${rowId}" style="font-weight:600">${escapeHtmlAttr(safeTitle)}</span>
           <button class="btn" type="button" onclick="toggleTitleEdit('${rowId}', true)">Edit</button>
           <form id="form_${rowId}" method="post" action="/admin/docs/${d.id}/title" style="display:none;gap:.25rem;align-items:center">
-            <input id="input_${rowId}" type="text" name="title" value="${escapeHtmlAttr(d.title)}" placeholder="Untitled" style="padding:.25rem .5rem;border-radius:.375rem;border:1px solid #334155;background:#0b1222;color:#e2e8f0" />
+            <input id="input_${rowId}" class="text-input" type="text" name="title" value="${escapeHtmlAttr(d.title)}" placeholder="Untitled" />
             <button class="btn" type="submit">Save</button>
             <button class="btn" type="button" onclick="toggleTitleEdit('${rowId}', false)">Cancel</button>
           </form>
@@ -220,14 +230,26 @@ function renderAdmin(docs: { id: string; updated_at: string; title: string }[]) 
   return `<!DOCTYPE html>
   <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Documents</title>
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}
-    .bar{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #1f2a44;background:#0b1222;position:sticky;top:0}
+    :root{color-scheme: light dark}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;background:#ffffff;color:#0f172a}
+    .bar{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;background:#f8fafc;position:sticky;top:0}
     table{width:100%;border-collapse:collapse}
-    th,td{text-align:left;padding:.75rem;border-bottom:1px solid #1f2a44}
-    a{color:#93c5fd;text-decoration:none}
+    th,td{text-align:left;padding:.75rem;border-bottom:1px solid #e5e7eb}
+    a{color:#2563eb;text-decoration:none}
     .wrap{max-width:960px;margin:0 auto}
-    .btn{padding:.5rem .8rem;border:1px solid #334155;border-radius:.5rem;background:#1e293b;color:#e2e8f0;cursor:pointer}
+    .btn{padding:.5rem .8rem;border:1px solid #0f172a;border-radius:.5rem;background:#0f172a;color:#ffffff;cursor:pointer}
+    .text-input{padding:.25rem .5rem;border-radius:.375rem;border:1px solid #cbd5e1;background:#ffffff;color:#0f172a}
+    @media (prefers-color-scheme: dark){
+      body{background:#0f172a;color:#e2e8f0}
+      .bar{border-bottom-color:#1f2a44;background:#0b1222}
+      th,td{border-bottom-color:#1f2a44}
+      a{color:#93c5fd}
+      .btn{border-color:#334155;background:#1e293b;color:#e2e8f0}
+      .text-input{border-color:#334155;background:#0b1222;color:#e2e8f0}
+    }
   </style></head>
   <body>
     <div class="bar"><div class="wrap"><strong>Documents</strong></div><div class="wrap" style="text-align:right">
@@ -253,17 +275,24 @@ function renderAdmin(docs: { id: string; updated_at: string; title: string }[]) 
 }
 
 function renderVersions(docId: string, docTitle: string, versions: { id: string; created_at: string }[]) {
-  const rows = versions.map(v => `<tr><td>${new Date(v.created_at).toLocaleString()}</td><td><form method="post" action="/admin/docs/${docId}/restore/${v.id}"><button type="submit">Restore</button></form></td></tr>`).join('')
+  const rows = versions.map(v => `<tr><td>${new Date(v.created_at).toLocaleString()}</td><td><form method="post" action="/admin/docs/${docId}/restore/${v.id}"><button class=\"btn\" type=\"submit\">Restore</button></form></td></tr>`).join('')
   return `<!DOCTYPE html>
   <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Versions</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}
-    a{color:#93c5fd;text-decoration:none}
+    :root{color-scheme: light dark}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;background:#ffffff;color:#0f172a}
+    a{color:#2563eb;text-decoration:none}
     table{width:100%;border-collapse:collapse}
-    th,td{text-align:left;padding:.75rem;border-bottom:1px solid #1f2a44}
+    th,td{text-align:left;padding:.75rem;border-bottom:1px solid #e5e7eb}
     .wrap{max-width:720px;margin:2rem auto}
-    button{padding:.4rem .7rem;border:1px solid #334155;border-radius:.5rem;background:#1e293b;color:#e2e8f0;cursor:pointer}
+    .btn{padding:.4rem .7rem;border:1px solid #0f172a;border-radius:.5rem;background:#0f172a;color:#ffffff;cursor:pointer}
+    @media (prefers-color-scheme: dark){
+      body{background:#0f172a;color:#e2e8f0}
+      a{color:#93c5fd}
+      th,td{border-bottom-color:#1f2a44}
+      .btn{border-color:#334155;background:#1e293b;color:#e2e8f0}
+    }
   </style></head>
   <body>
     <div class="wrap"><p><a href="/admin">← Back</a> · Document <a href="/d/${docId}">${docTitle || 'Untitled'}</a> <span style="opacity:.7">(${docId})</span></p>
