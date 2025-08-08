@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server/src/index.ts",
+    "dev": "tsx watch server/src/index.ts",
     "build:client": "pnpm -C client build",
     "build:server": "pnpm -C server build",
     "build": "pnpm build:client && pnpm build:server",
