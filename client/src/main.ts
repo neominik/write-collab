@@ -104,13 +104,10 @@ try {
   })
 } catch {}
 
-// Ensure initial content loads (in case of empty provider initial)
+// Fetch and set initial title only (content comes exclusively from Yjs provider to avoid duplication)
 fetch(`/api/documents/${encodeURIComponent(docId)}`).then(async r => {
   if (!r.ok) return
   const data = await r.json()
-  if (typeof data.text === 'string' && editor.getValue() === '') {
-    editor.setValue(data.text)
-  }
   if (typeof data.title === 'string') {
     if (titleInput) titleInput.value = data.title
     setBrowserTitle(data.title)
