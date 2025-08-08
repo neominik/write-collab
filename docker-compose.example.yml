@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-writecollab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-writecollab}
+      POSTGRES_DB: ${POSTGRES_DB:-writecollab}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+
+  write-collab:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      ADMIN_SECRET: ${ADMIN_SECRET:-changeme}
+      HTTP_PORT: 3000
+      WS_PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_SSL: 'false'
+      # Default to the bundled Postgres; override via .env if needed
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-writecollab}:${POSTGRES_PASSWORD:-writecollab}@db:5432/${POSTGRES_DB:-writecollab}}
+      # Also provide PG* envs understood by node-postgres
+      PGHOST: ${PGHOST:-db}
+      PGUSER: ${POSTGRES_USER:-writecollab}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-writecollab}
+      PGDATABASE: ${POSTGRES_DB:-writecollab}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.write-collab.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.write-collab.service=write-collab
+      - traefik.http.routers.write-collab.tls=true
+      - traefik.http.services.write-collab.loadbalancer.server.port=3000
+
+      - traefik.http.routers.write-collab-ws.rule=Host(`${WS_DOMAIN}`)
+      - traefik.http.routers.write-collab-ws.service=write-collab-ws
+      - traefik.http.routers.write-collab-ws.tls=true
+      - traefik.http.services.write-collab-ws.loadbalancer.server.port=3001
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+
+volumes:
+  db_data: {}
+
+

@@ -1,0 +1,22 @@
+{
+  "name": "write-collab-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hocuspocus/provider": "^3.2.3",
+    "monaco-editor": "^0.49.0",
+    "y-monaco": "^0.1.6",
+    "yjs": "^13.6.19"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^5.3.4",
+    "vite-plugin-monaco-editor": "^1.1.0"
+  }
+}
+
