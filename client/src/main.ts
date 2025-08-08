@@ -65,21 +65,6 @@ new MonacoBinding(ytext, editor.getModel()!, new Set([editor]), provider.awarene
 // Keep browser tab title in sync with the dedicated title field
 setBrowserTitle('')
 
-// Connection status dot
-const status = document.getElementById('status')!
-function setStatus(cls: string, title: string) {
-  status.className = `status-dot ${cls}`
-  status.setAttribute('title', title)
-}
-
-setStatus('status-connecting', 'connecting')
-
-provider.on('status', ({ status: s }: { status: string }) => {
-  if (s === 'connected') setStatus('status-connected', 'connected')
-  else if (s === 'connecting') setStatus('status-connecting', 'connecting')
-  else setStatus('status-disconnected', 'disconnected')
-})
-
 // Listen to restore events via SSE to hard-reset editor content
 const eventsUrl = `/api/documents/${encodeURIComponent(docId)}/events`
 try {
