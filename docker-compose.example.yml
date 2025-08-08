@@ -27,6 +27,9 @@ services:
       HTTP_PORT: 3000
       WS_PORT: 3001
       HOST: 0.0.0.0
+      # Domains for HTTP and WS (used by reverse proxy and passed to the app)
+      DOMAIN: ${DOMAIN}
+      WS_DOMAIN: ${WS_DOMAIN}
       DATABASE_SSL: 'false'
       # Default to the bundled Postgres; override via .env if needed
       DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-writecollab}:${POSTGRES_PASSWORD:-writecollab}@db:5432/${POSTGRES_DB:-writecollab}}

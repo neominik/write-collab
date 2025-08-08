@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import path from 'node:path'
+import fs from 'node:fs/promises'
 import { Server as HocuspocusServer } from '@hocuspocus/server'
 import { Logger } from '@hocuspocus/extension-logger'
 import * as Y from 'yjs'
@@ -199,7 +200,24 @@ app.get('/d/:id', async (req, res) => {
   const id = req.params.id
   const { rows } = await query<{ id: string }>('SELECT id FROM documents WHERE id = $1', [id])
   if (!rows[0]) return res.status(404).send('Not found')
-  res.sendFile(path.join(clientDist, 'index.html'))
+  try {
+    const indexPath = path.join(clientDist, 'index.html')
+    let html = await fs.readFile(indexPath, 'utf8')
+    // Compute WS URL, honoring WS_DOMAIN when set (useful behind proxies/Traefik)
+    const wsDomain = process.env.WS_DOMAIN
+    const wsPort = process.env.WS_PORT || '3001'
+    const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol
+    const wsProto = proto === 'https' ? 'wss' : 'ws'
+    const wsUrl = wsDomain ? `${wsProto}://${wsDomain}` : `${wsProto}://${req.hostname}:${wsPort}`
+    html = html.replace(
+      /<meta name="ws-url" content="[^"]*">/,
+      `<meta name="ws-url" content="${wsUrl}">`,
+    )
+    res.type('html').send(html)
+  } catch (err) {
+    // Fallback to static file if something goes wrong
+    res.sendFile(path.join(clientDist, 'index.html'))
+  }
 })
 
 app.get('/', (req, res) => res.redirect('/admin'))
