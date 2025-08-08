@@ -114,6 +114,25 @@ app.get('/admin/docs/:id/versions', adminGuard, async (req, res) => {
   const titleRow = await query<{ title: string }>('SELECT title FROM documents WHERE id = $1', [docId])
   res.type('html').send(renderVersions(docId, titleRow.rows[0]?.title || '', rows))
 })
+app.get('/admin/docs/:id/versions/:versionId', adminGuard, async (req, res) => {
+  const { id, versionId } = req.params
+  const vr = await query<{ id: string; text: string; created_at: string }>(
+    'SELECT id, text, created_at FROM versions WHERE id = $1 AND document_id = $2',
+    [versionId, id],
+  )
+  if (!vr.rows[0]) return res.status(404).send('Not found')
+  const tr = await query<{ title: string }>('SELECT title FROM documents WHERE id = $1', [id])
+  const title = tr.rows[0]?.title || ''
+  res.type('html').send(
+    renderVersionPreview(
+      id,
+      title,
+      vr.rows[0].id,
+      vr.rows[0].created_at,
+      vr.rows[0].text || '',
+    ),
+  )
+})
 app.post('/admin/docs/:id/title', adminGuard, express.urlencoded({ extended: false }), async (req, res) => {
   const id = req.params.id
   const title = (req.body.title ?? '').toString().trim()
@@ -280,7 +299,17 @@ function renderAdmin(docs: { id: string; updated_at: string; title: string }[]) 
 }
 
 function renderVersions(docId: string, docTitle: string, versions: { id: string; created_at: string }[]) {
-  const rows = versions.map(v => `<tr><td>${new Date(v.created_at).toLocaleString()}</td><td><form method="post" action="/admin/docs/${docId}/restore/${v.id}"><button class=\"btn\" type=\"submit\">Restore</button></form></td></tr>`).join('')
+  const rows = versions.map(v => `
+    <tr>
+      <td>${new Date(v.created_at).toLocaleString()}</td>
+      <td>
+        <a href="/admin/docs/${docId}/versions/${v.id}" class="btn" style="text-decoration:none">Preview</a>
+        <form method="post" action="/admin/docs/${docId}/restore/${v.id}" style="display:inline;margin-left:.5rem">
+          <button class="btn" type="submit">Restore</button>
+        </form>
+      </td>
+    </tr>
+  `).join('')
   return `<!DOCTYPE html>
   <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Versions</title>
@@ -302,6 +331,55 @@ function renderVersions(docId: string, docTitle: string, versions: { id: string;
   <body>
     <div class="wrap"><p><a href="/admin">← Back</a> · Document <a href="/d/${docId}">${docTitle || 'Untitled'}</a> <span style="opacity:.7">(${docId})</span></p>
     <table><thead><tr><th>Created</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table></div>
+  </body></html>`
+}
+
+function renderVersionPreview(
+  docId: string,
+  docTitle: string,
+  versionId: string,
+  createdAt: string,
+  text: string,
+) {
+  const escaped = escapeHtmlAttr(text)
+  return `<!DOCTYPE html>
+  <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Preview Version</title>
+  <style>
+    :root{color-scheme: light dark}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;background:#ffffff;color:#0f172a}
+    .wrap{max-width:960px;margin:1.5rem auto;padding:0 1rem}
+    .bar{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;background:#f8fafc;position:sticky;top:0}
+    .btn{padding:.45rem .75rem;border:1px solid #0f172a;border-radius:.5rem;background:#0f172a;color:#ffffff;cursor:pointer}
+    pre{white-space:pre-wrap;word-wrap:break-word;border:1px solid #e5e7eb;background:#f8fafc;border-radius:.5rem;padding:1rem;overflow:auto}
+    .meta{opacity:.7}
+    @media (prefers-color-scheme: dark){
+      body{background:#0f172a;color:#e2e8f0}
+      .bar{border-bottom-color:#1f2a44;background:#0b1222}
+      pre{border-color:#1f2a44;background:#0b1222}
+      .btn{border-color:#334155;background:#1e293b;color:#e2e8f0}
+    }
+  </style></head>
+  <body>
+    <div class="bar">
+      <div class="wrap">
+        <a href="/admin" style="text-decoration:none">← Back</a>
+      </div>
+      <div class="wrap" style="text-align:right">
+        <a href="/admin/docs/${docId}/versions" class="btn" style="text-decoration:none">All versions</a>
+        <a href="/d/${docId}" class="btn" style="text-decoration:none;margin-left:.5rem">Open document</a>
+      </div>
+    </div>
+    <div class="wrap">
+      <h2 style="margin:.5rem 0 0">${escapeHtmlAttr(docTitle || 'Untitled')}</h2>
+      <div class="meta">Document ID: ${docId} · Version: ${versionId} · Created: ${new Date(createdAt).toLocaleString()}</div>
+      <div style="margin:1rem 0">
+        <form method="post" action="/admin/docs/${docId}/restore/${versionId}" style="display:inline">
+          <button class="btn" type="submit">Restore this version</button>
+        </form>
+      </div>
+      <pre>${escaped}</pre>
+    </div>
   </body></html>`
 }
 
