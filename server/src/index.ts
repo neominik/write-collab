@@ -80,7 +80,7 @@ app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
 
 function adminGuard(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const secret = req.cookies['admin'] || req.header('x-admin-secret') || req.query.secret
+  const secret = req.cookies['admin'] || req.header('x-admin-secret')
   if (secret === ADMIN_SECRET) return next()
   res.status(401).send(renderLogin())
 }
@@ -102,7 +102,7 @@ app.post('/admin/login', express.urlencoded({ extended: false }), (req, res) => 
 })
 
 app.post('/admin/logout', (req, res) => {
-  res.clearCookie('admin')
+  res.clearCookie('admin', { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' })
   res.redirect('/admin')
 })
 
@@ -142,6 +142,9 @@ app.get('/admin/docs/:id/versions/:versionId', adminGuard, async (req, res) => {
 app.post('/admin/docs/:id/title', adminGuard, express.urlencoded({ extended: false }), async (req, res) => {
   const id = req.params.id
   const title = (req.body.title ?? '').toString().trim()
+  if (title.length > 512) {
+    return res.status(400).send('Title too long')
+  }
   await query('UPDATE documents SET title = $2, updated_at = NOW() WHERE id = $1', [id, title])
   publish(id, 'title', { title })
   res.redirect('/admin')

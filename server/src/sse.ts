@@ -25,6 +25,9 @@ export function subscribe(docId: string, res: Response) {
   res.on('close', () => {
     clearInterval(heartbeat)
     set?.delete(client)
+    if (set && set.size === 0) {
+      channels.delete(docId)
+    }
   })
 }
 
