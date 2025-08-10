@@ -68,9 +68,13 @@ try {
   es.addEventListener('restore', (ev) => {
     try {
       const payload = JSON.parse((ev as MessageEvent).data)
-      const current = editor.getValue()
-      if (current !== payload.text) {
-        editor.setValue(payload.text)
+      const incoming = (payload?.text ?? '').toString()
+      const current = ytext.toString()
+      if (current !== incoming) {
+        ydoc.transact(() => {
+          ytext.delete(0, ytext.length)
+          ytext.insert(0, incoming)
+        })
       }
     } catch {}
   })
